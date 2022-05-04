@@ -2,9 +2,9 @@ import re
 import requests
 import safaribooks
 
-REGISTER_URL = safaribooks.SAFARI_BASE_URL + "/register/"
-CHECK_EMAIL = safaribooks.SAFARI_BASE_URL + "/check-email-availability/"
-CHECK_PWD = safaribooks.SAFARI_BASE_URL + "/check-password/"
+REGISTER_URL = f"{safaribooks.SAFARI_BASE_URL}/register/"
+CHECK_EMAIL = f"{safaribooks.SAFARI_BASE_URL}/check-email-availability/"
+CHECK_PWD = f"{safaribooks.SAFARI_BASE_URL}/check-password/"
 
 # DEBUG
 USE_PROXY = False
@@ -56,7 +56,7 @@ class Register:
             self.handle_cookie_update(response.raw.headers.getlist("Set-Cookie"))
 
         except (requests.ConnectionError, requests.ConnectTimeout, requests.RequestException) as request_exception:
-            print("Error: ", str(request_exception))
+            print("Error: ", request_exception)
             return 0
 
         if response.is_redirect and perform_redirect:

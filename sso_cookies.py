@@ -33,7 +33,7 @@ USAGE = "\n\n[*] Please use this command putting as argument the cookies retriev
 if __name__ == "__main__":
     import sys
     if len(sys.argv) < 2:
-        print("[!] Error: too few arguments." + USAGE)
+        print(f"[!] Error: too few arguments.{USAGE}")
         exit(1)
 
     elif len(sys.argv) > 2:

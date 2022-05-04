@@ -23,13 +23,13 @@ COOKIES_FILE = os.path.join(PATH, "cookies.json")
 
 ORLY_BASE_HOST = "oreilly.com"  # PLEASE INSERT URL HERE
 
-SAFARI_BASE_HOST = "learning." + ORLY_BASE_HOST
-API_ORIGIN_HOST = "api." + ORLY_BASE_HOST
+SAFARI_BASE_HOST = f"learning.{ORLY_BASE_HOST}"
+API_ORIGIN_HOST = f"api.{ORLY_BASE_HOST}"
 
-ORLY_BASE_URL = "https://www." + ORLY_BASE_HOST
-SAFARI_BASE_URL = "https://" + SAFARI_BASE_HOST
-API_ORIGIN_URL = "https://" + API_ORIGIN_HOST
-PROFILE_URL = SAFARI_BASE_URL + "/profile/"
+ORLY_BASE_URL = f"https://www.{ORLY_BASE_HOST}"
+SAFARI_BASE_URL = f"https://{SAFARI_BASE_HOST}"
+API_ORIGIN_URL = f"https://{API_ORIGIN_HOST}"
+PROFILE_URL = f"{SAFARI_BASE_URL}/profile/"
 
 # DEBUG
 USE_PROXY = False
@@ -85,7 +85,7 @@ class Display:
         try:
             self.logger.info(str(message, "utf-8", "replace"))
 
-        except (UnicodeDecodeError, Exception):
+        except Exception:
             self.logger.info(message)
 
     def out(self, put):
@@ -100,8 +100,12 @@ class Display:
 
     def info(self, message, state=False):
         self.log(message)
-        output = (self.SH_YELLOW + "[*]" + self.SH_DEFAULT if not state else
-                  self.SH_BG_YELLOW + "[-]" + self.SH_DEFAULT) + " %s" % message
+        output = (
+            f"{self.SH_BG_YELLOW}[-]{self.SH_DEFAULT}"
+            if state
+            else f"{self.SH_YELLOW}[*]{self.SH_DEFAULT}"
+        ) + f" {message}"
+
         self.out(output)
 
     def error(self, error):
@@ -109,19 +113,24 @@ class Display:
             self.in_error = True
 
         self.log(error)
-        output = self.SH_BG_RED + "[#]" + self.SH_DEFAULT + " %s" % error
+        output = f"{self.SH_BG_RED}[#]{self.SH_DEFAULT}" + f" {error}"
         self.out(output)
 
     def exit(self, error):
         self.error(str(error))
 
         if self.output_dir_set:
-            output = (self.SH_YELLOW + "[+]" + self.SH_DEFAULT +
-                      " Please delete the output directory '" + self.output_dir + "'"
-                      " and restart the program.")
+            output = (
+                (
+                    f"{self.SH_YELLOW}[+]{self.SH_DEFAULT}"
+                    + " Please delete the output directory '"
+                )
+                + self.output_dir
+            ) + "'" " and restart the program."
+
             self.out(output)
 
-        output = self.SH_BG_RED + "[!]" + self.SH_DEFAULT + " Aborting..."
+        output = f"{self.SH_BG_RED}[!]{self.SH_DEFAULT} Aborting..."
         self.out(output)
 
         self.save_last_request()
@@ -129,7 +138,7 @@ class Display:
 
     def unhandled_exception(self, _, o, tb):
         self.log("".join(traceback.format_tb(tb)))
-        self.exit("Unhandled Exception: %s (type: %s)" % (o, o.__class__.__name__))
+        self.exit(f"Unhandled Exception: {o} (type: {o.__class__.__name__})")
 
     def save_last_request(self):
         if any(self.last_request):
@@ -160,32 +169,24 @@ class Display:
     def parse_description(self, desc):
         if not desc:
             return "n/d"
-        
+
         try:
             return html.fromstring(desc).text_content()
 
         except (html.etree.ParseError, html.etree.ParserError) as e:
-            self.log("Error parsing the description: %s" % e)
+            self.log(f"Error parsing the description: {e}")
             return "n/d"
 
     def book_info(self, info):
         description = self.parse_description(info.get("description", None)).replace("\n", " ")
-        for t in [
-            ("Title", info.get("title", "")), ("Authors", ", ".join(aut.get("name", "") for aut in info.get("authors", []))),
-            ("Identifier", info.get("identifier", "")), ("ISBN", info.get("isbn", "")),
-            ("Publishers", ", ".join(pub.get("name", "") for pub in info.get("publishers", []))),
-            ("Rights", info.get("rights", "")),
-            ("Description", description[:500] + "..." if len(description) >= 500 else description),
-            ("Release Date", info.get("issued", "")),
-            ("URL", info.get("web_url", ""))
-        ]:
+        for t in [("Title", info.get("title", "")), ("Authors", ", ".join(aut.get("name", "") for aut in info.get("authors", []))), ("Identifier", info.get("identifier", "")), ("ISBN", info.get("isbn", "")), ("Publishers", ", ".join(pub.get("name", "") for pub in info.get("publishers", []))), ("Rights", info.get("rights", "")), ("Description", f"{description[:500]}..." if len(description) >= 500 else description), ("Release Date", info.get("issued", "")), ("URL", info.get("web_url", ""))]:
             self.info("{0}{1}{2}: {3}".format(self.SH_YELLOW, t[0], self.SH_DEFAULT, t[1]), True)
 
     def state(self, origin, done):
         progress = int(done * 100 / origin)
-        bar = int(progress * (self.columns - 11) / 100)
         if self.state_status.value < progress:
             self.state_status.value = progress
+            bar = int(progress * (self.columns - 11) / 100)
             sys.stdout.write(
                 "\r    " + self.SH_BG_YELLOW + "[" + ("#" * bar).ljust(self.columns - 11, "-") + "]" +
                 self.SH_DEFAULT + ("%4s" % progress) + "%" + ("\n" if progress == 100 else "")
@@ -209,9 +210,16 @@ class Display:
 
         else:
             os.remove(COOKIES_FILE)
-            message += "Out-of-Session%s.\n" % (" (%s)" % response["detail"]) if "detail" in response else "" + \
-                       Display.SH_YELLOW + "[+]" + Display.SH_DEFAULT + \
-                       " Use the `--cred` or `--login` options in order to perform the auth login to Safari."
+            message += (
+                "Out-of-Session%s.\n" % f' ({response["detail"]})'
+                if "detail" in response
+                else ""
+                + Display.SH_YELLOW
+                + "[+]"
+                + Display.SH_DEFAULT
+                + " Use the `--cred` or `--login` options in order to perform the auth login to Safari."
+            )
+
 
         return message
 
@@ -311,7 +319,7 @@ class SafariBooks:
 
     def __init__(self, args):
         self.args = args
-        self.display = Display("info_%s.log" % escape(args.bookid))
+        self.display = Display(f"info_{escape(args.bookid)}.log")
         self.display.intro()
 
         self.session = requests.Session()
@@ -375,8 +383,17 @@ class SafariBooks:
         self.css = []
         self.images = []
 
-        self.display.info("Downloading book contents... (%s chapters)" % len(self.book_chapters), state=True)
-        self.BASE_HTML = self.BASE_01_HTML + (self.KINDLE_HTML if not args.kindle else "") + self.BASE_02_HTML
+        self.display.info(
+            f"Downloading book contents... ({len(self.book_chapters)} chapters)",
+            state=True,
+        )
+
+        self.BASE_HTML = (
+            self.BASE_01_HTML
+            + ("" if args.kindle else self.KINDLE_HTML)
+            + self.BASE_02_HTML
+        )
+
 
         self.cover = False
         self.get()
@@ -395,10 +412,16 @@ class SafariBooks:
             self.save_page_html(cover_html)
 
         self.css_done_queue = Queue(0) if "win" not in sys.platform else WinQueue()
-        self.display.info("Downloading book CSSs... (%s files)" % len(self.css), state=True)
+        self.display.info(
+            f"Downloading book CSSs... ({len(self.css)} files)", state=True
+        )
+
         self.collect_css()
         self.images_done_queue = Queue(0) if "win" not in sys.platform else WinQueue()
-        self.display.info("Downloading book images... (%s files)" % len(self.images), state=True)
+        self.display.info(
+            f"Downloading book images... ({len(self.images)} files)", state=True
+        )
+
         self.collect_images()
 
         self.display.info("Creating EPUB file...", state=True)
@@ -407,7 +430,7 @@ class SafariBooks:
         if not args.no_cookies:
             json.dump(self.session.cookies.get_dict(), open(COOKIES_FILE, "w"))
 
-        self.display.done(os.path.join(self.BOOK_PATH, self.book_id + ".epub"))
+        self.display.done(os.path.join(self.BOOK_PATH, f"{self.book_id}.epub"))
         self.display.unregister()
 
         if not self.display.in_error and not args.log:
@@ -494,10 +517,22 @@ class SafariBooks:
                 error_page = html.fromstring(response.text)
                 errors_message = error_page.xpath("//ul[@class='errorlist']//li/text()")
                 recaptcha = error_page.xpath("//div[@class='g-recaptcha']")
-                messages = (["    `%s`" % error for error in errors_message
-                             if "password" in error or "email" in error] if len(errors_message) else []) + \
-                           (["    `ReCaptcha required (wait or do logout from the website).`"] if len(
-                               recaptcha) else [])
+                messages = (
+                    [
+                        f"    `{error}`"
+                        for error in errors_message
+                        if "password" in error or "email" in error
+                    ]
+                    if len(errors_message)
+                    else []
+                ) + (
+                    [
+                        "    `ReCaptcha required (wait or do logout from the website).`"
+                    ]
+                    if len(recaptcha)
+                    else []
+                )
+
                 self.display.exit(
                     "Login: unable to perform auth login to Safari Books Online.\n" + self.display.SH_YELLOW +
                     "[*]" + self.display.SH_DEFAULT + " Details:\n" + "%s" % "\n".join(
@@ -548,7 +583,10 @@ class SafariBooks:
         return response
 
     def get_book_chapters(self, page=1):
-        response = self.requests_provider(urljoin(self.api_url, "chapter/?page=%s" % page))
+        response = self.requests_provider(
+            urljoin(self.api_url, f"chapter/?page={page}")
+        )
+
         if response == 0:
             self.display.exit("API: unable to retrieve book chapters.")
 
@@ -563,8 +601,12 @@ class SafariBooks:
         if response["count"] > sys.getrecursionlimit():
             sys.setrecursionlimit(response["count"])
 
-        result = []
-        result.extend([c for c in response["results"] if "cover" in c["filename"] or "cover" in c["title"]])
+        result = [
+            c
+            for c in response["results"]
+            if "cover" in c["filename"] or "cover" in c["title"]
+        ]
+
         for c in result:
             del response["results"][response["results"].index(c)]
 
@@ -574,15 +616,18 @@ class SafariBooks:
     def get_default_cover(self):
         response = self.requests_provider(self.book_info["cover"], stream=True)
         if response == 0:
-            self.display.error("Error trying to retrieve the cover: %s" % self.book_info["cover"])
+            self.display.error(
+                f'Error trying to retrieve the cover: {self.book_info["cover"]}'
+            )
+
             return False
 
         file_ext = response.headers["Content-Type"].split("/")[-1]
-        with open(os.path.join(self.images_path, "default_cover." + file_ext), 'wb') as i:
+        with open(os.path.join(self.images_path, f"default_cover.{file_ext}"), 'wb') as i:
             for chunk in response.iter_content(1024):
                 i.write(chunk)
 
-        return "default_cover." + file_ext
+        return f"default_cover.{file_ext}"
 
     def get_html(self, url):
         response = self.requests_provider(url)
@@ -619,7 +664,7 @@ class SafariBooks:
                 if any(x in link for x in ["cover", "images", "graphics"]) or \
                         self.is_image_link(link):
                     image = link.split("/")[-1]
-                    return "Images/" + image
+                    return f"Images/{image}"
 
                 return link.replace(".html", ".xhtml")
 
@@ -653,9 +698,8 @@ class SafariBooks:
         return None
 
     def parse_html(self, root, first_page=False):
-        if random() > 0.8:
-            if len(root.xpath("//div[@class='controls']/a/text()")):
-                self.display.exit(self.display.api_error(" "))
+        if random() > 0.8 and len(root.xpath("//div[@class='controls']/a/text()")):
+            self.display.exit(self.display.api_error(" "))
 
         book_content = root.xpath("//div[@id='sbo-rt-content']")
         if not len(book_content):
@@ -669,7 +713,7 @@ class SafariBooks:
             for chapter_css_url in self.chapter_stylesheets:
                 if chapter_css_url not in self.css:
                     self.css.append(chapter_css_url)
-                    self.display.log("Crawler: found a new CSS at %s" % chapter_css_url)
+                    self.display.log(f"Crawler: found a new CSS at {chapter_css_url}")
 
                 page_css += "<link href=\"Styles/Style{0:0>2}.css\" " \
                             "rel=\"stylesheet\" type=\"text/css\" />\n".format(self.css.index(chapter_css_url))
@@ -682,7 +726,7 @@ class SafariBooks:
 
                 if css_url not in self.css:
                     self.css.append(css_url)
-                    self.display.log("Crawler: found a new CSS at %s" % css_url)
+                    self.display.log(f"Crawler: found a new CSS at {css_url}")
 
                 page_css += "<link href=\"Styles/Style{0:0>2}.css\" " \
                             "rel=\"stylesheet\" type=\"text/css\" />\n".format(self.css.index(css_url))
@@ -700,9 +744,9 @@ class SafariBooks:
                 except (html.etree.ParseError, html.etree.ParserError) as parsing_error:
                     self.display.error(parsing_error)
                     self.display.exit(
-                        "Parser: error trying to parse one CSS found in this page: %s (%s)" %
-                        (self.filename, self.chapter_title)
+                        f"Parser: error trying to parse one CSS found in this page: {self.filename} ({self.chapter_title})"
                     )
+
 
         # TODO: add all not covered tag for `link_replace` function
         svg_image_tags = root.xpath("//image")
@@ -744,9 +788,9 @@ class SafariBooks:
         except (html.etree.ParseError, html.etree.ParserError) as parsing_error:
             self.display.error(parsing_error)
             self.display.exit(
-                "Parser: error trying to parse HTML of this page: %s (%s)" %
-                (self.filename, self.chapter_title)
+                f"Parser: error trying to parse HTML of this page: {self.filename} ({self.chapter_title})"
             )
+
 
         return page_css, xhtml
 
@@ -763,11 +807,11 @@ class SafariBooks:
             if ch in dirname:
                 dirname = dirname.replace(ch, "_")
 
-        return dirname if not clean_space else dirname.replace(" ", "")
+        return dirname.replace(" ", "") if clean_space else dirname
 
     def create_dirs(self):
         if os.path.isdir(self.BOOK_PATH):
-            self.display.log("Book directory already exists: %s" % self.BOOK_PATH)
+            self.display.log(f"Book directory already exists: {self.BOOK_PATH}")
 
         else:
             os.makedirs(self.BOOK_PATH)
@@ -779,7 +823,7 @@ class SafariBooks:
 
         self.css_path = os.path.join(oebps, "Styles")
         if os.path.isdir(self.css_path):
-            self.display.log("CSSs directory already exists: %s" % self.css_path)
+            self.display.log(f"CSSs directory already exists: {self.css_path}")
 
         else:
             os.makedirs(self.css_path)
@@ -787,7 +831,7 @@ class SafariBooks:
 
         self.images_path = os.path.join(oebps, "Images")
         if os.path.isdir(self.images_path):
-            self.display.log("Images directory already exists: %s" % self.images_path)
+            self.display.log(f"Images directory already exists: {self.images_path}")
 
         else:
             os.makedirs(self.images_path)
@@ -797,7 +841,7 @@ class SafariBooks:
         self.filename = self.filename.replace(".html", ".xhtml")
         open(os.path.join(self.BOOK_PATH, "OEBPS", self.filename), "wb") \
             .write(self.BASE_HTML.format(contents[0], contents[1]).encode("utf-8", 'xmlcharrefreplace'))
-        self.display.log("Created: %s" % self.filename)
+        self.display.log(f"Created: {self.filename}")
 
     def get(self):
         len_books = len(self.book_chapters)
@@ -943,9 +987,11 @@ class SafariBooks:
                 head, i, "jpeg" if "jp" in extension else extension
             ))
 
-        for i in range(len(self.css)):
-            manifest.append("<item id=\"style_{0:0>2}\" href=\"Styles/Style{0:0>2}.css\" "
-                            "media-type=\"text/css\" />".format(i))
+        manifest.extend(
+            "<item id=\"style_{0:0>2}\" href=\"Styles/Style{0:0>2}.css\" "
+            "media-type=\"text/css\" />".format(i)
+            for i in range(len(self.css))
+        )
 
         authors = "\n".join("<dc:creator opf:file-as=\"{0}\" opf:role=\"aut\">{0}</dc:creator>".format(
             escape(aut.get("name", "n/d"))
@@ -1010,18 +1056,20 @@ class SafariBooks:
 
         navmap, _, max_depth = self.parse_toc(response)
         return self.TOC_NCX.format(
-            (self.book_info["isbn"] if self.book_info["isbn"] else self.book_id),
+            self.book_info["isbn"] or self.book_id,
             max_depth,
             self.book_title,
-            ", ".join(aut.get("name", "") for aut in self.book_info.get("authors", [])),
-            navmap
+            ", ".join(
+                aut.get("name", "") for aut in self.book_info.get("authors", [])
+            ),
+            navmap,
         )
 
     def create_epub(self):
         open(os.path.join(self.BOOK_PATH, "mimetype"), "w").write("application/epub+zip")
         meta_info = os.path.join(self.BOOK_PATH, "META-INF")
         if os.path.isdir(meta_info):
-            self.display.log("META-INF directory already exists: %s" % meta_info)
+            self.display.log(f"META-INF directory already exists: {meta_info}")
 
         else:
             os.makedirs(meta_info)
@@ -1037,11 +1085,13 @@ class SafariBooks:
         )
 
         zip_file = os.path.join(PATH, "Books", self.book_id)
-        if os.path.isfile(zip_file + ".zip"):
-            os.remove(zip_file + ".zip")
+        if os.path.isfile(f"{zip_file}.zip"):
+            os.remove(f"{zip_file}.zip")
 
         shutil.make_archive(zip_file, 'zip', self.BOOK_PATH)
-        os.rename(zip_file + ".zip", os.path.join(self.BOOK_PATH, self.book_id) + ".epub")
+        os.rename(
+            f"{zip_file}.zip", f"{os.path.join(self.BOOK_PATH, self.book_id)}.epub"
+        )
 
 
 # MAIN
@@ -1094,20 +1144,20 @@ if __name__ == "__main__":
         else:
             user_email = input("Email: ")
             passwd = getpass.getpass("Password: ")
-            pre_cred = user_email + ":" + passwd
+            pre_cred = f"{user_email}:{passwd}"
 
         parsed_cred = SafariBooks.parse_cred(pre_cred)
 
         if not parsed_cred:
-            arguments.error("invalid credential: %s" % (
-                args_parsed.cred if args_parsed.cred else (user_email + ":*******")
-            ))
+            arguments.error(
+                f'invalid credential: {args_parsed.cred or f"{user_email}:*******"}'
+            )
+
 
         args_parsed.cred = parsed_cred
 
-    else:
-        if args_parsed.no_cookies:
-            arguments.error("invalid option: `--no-cookies` is valid only if you use the `--cred` option")
+    elif args_parsed.no_cookies:
+        arguments.error("invalid option: `--no-cookies` is valid only if you use the `--cred` option")
 
     SafariBooks(args_parsed)
     # Hint: do you want to download more then one book once, initialized more than one instance of `SafariBooks`...
